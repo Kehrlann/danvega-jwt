@@ -1,25 +1,22 @@
 # Notes
 
-## POST-based login
+## POST-based token exchange
 
-- Enable `.formLogin(withDefaults())`, this will bootstrap a `UsernamePasswordAuthenticationFilter`
-- You _need_ session in order for this to work, because `/login` yields a session cookie
+- Disable sessions again
+- Instead of creating a _controller_ for producing tokens, create a Filter
+- Reuse the one that is used for FormLogin: `UsernamePasswordAuthenticationFilter`
 - This filter supports POST-based authentication
+- On success, it returns the token
+- Note: HTTP basic still works, but protects the `/token` endpoint. You would have to jump through many hoops to get
+  both working on the same HTTP endpoint
 
 Usage:
 
 ```shell
 # show that /login works
-curl -X POST localhost:8080/login -d"username=dvega" -d"password=password" -v
+curl -X POST localhost:8080/login -d"username=dvega" -d"password=password"
+# -> returns the token
 
-# Get the cookie (nasty sed regexp)
-COOKIE=$(curl -X POST localhost:8080/login -d"username=dvega" -d"password=password" -sD- | sed -n "s/Set-Cookie: \(JSESSIONID=[0-9A-Z]*\);.*/\1/p")
-
-# Use the cookie to get a token
-TOKEN=$(curl -XPOST localhost:8080/token -b "$COOKIE")
-
-# Use the token
-curl localhost:8080/secure -H "Authorization: Bearer $TOKEN"
+# On the /token endpoint, httpbasic still works
+curl -X POST -u "dvega:password" localhost:8080/token
 ```
-
-- In this case though, JWT is not super useful since you have sessions for authentication!
