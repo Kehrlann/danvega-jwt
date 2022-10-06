@@ -12,6 +12,7 @@ import dev.danvega.jwt.service.TokenService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
@@ -47,34 +48,20 @@ public class SecurityConfig {
     }
 
     @Bean
-    public UserDetailsService users() {
-        return new InMemoryUserDetailsManager(
+    public AuthenticationManager authManager() {
+        var userDetailsService = new InMemoryUserDetailsManager(
                 User.withUsername("dvega")
                         .password("{noop}password")
                         .authorities("read")
                         .build()
         );
-    }
-
-    public static UsernamePasswordAuthenticationFilter makeLoginFilter(UserDetailsService service, TokenService tokenService) {
         var authProvider = new DaoAuthenticationProvider();
-        authProvider.setUserDetailsService(service);
-        var authManager = new ProviderManager(authProvider);
-        var tokenFilter = new UsernamePasswordAuthenticationFilter(authManager);
-        tokenFilter.setAuthenticationSuccessHandler(
-                (request, response, authentication) -> {
-                    response.setStatus(HttpStatus.OK.value());
-                    response.getWriter().println(tokenService.generateToken(authentication));
-                }
-        );
-        return tokenFilter;
+        authProvider.setUserDetailsService(userDetailsService);
+        return new ProviderManager(authProvider);
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(
-            HttpSecurity http,
-            UserDetailsService userDetailsService,
-            TokenService tokenService) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .authorizeRequests(auth -> auth
@@ -88,7 +75,6 @@ public class SecurityConfig {
                         .accessDeniedHandler(new BearerTokenAccessDeniedHandler())
                 )
                 .httpBasic(Customizer.withDefaults())
-                .addFilter(makeLoginFilter(userDetailsService, tokenService))
                 .build();
     }
 
